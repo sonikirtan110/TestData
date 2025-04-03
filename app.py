@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 import joblib
 import numpy as np
 import pandas as pd
+import bz2  # For opening compressed files
 
 app = Flask(__name__)
 
@@ -27,8 +28,10 @@ class Transaction(db.Model):
     prediction = db.Column(db.String(50), nullable=False)
     probability = db.Column(db.Float, nullable=False)
 
-# --- Load the trained model pipeline ---
-pipeline = joblib.load("best_fraud_detection_pipeline1.1.pkl.bz2")
+# --- Load the compressed trained model pipeline ---
+# Make sure your model file is named 'best_fraud_detection_pipeline1.1.pkl.bz2'
+with bz2.open("best_fraud_detection_pipeline1.1.pkl.bz2", "rb") as f:
+    pipeline = joblib.load(f)
 
 # --- Category Options for the HTML Dropdown ---
 categories = [
