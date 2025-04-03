@@ -28,7 +28,7 @@ class Transaction(db.Model):
     probability = db.Column(db.Float, nullable=False)
 
 # --- Load the trained model pipeline ---
-pipeline = joblib.load("best_fraud_detection_pipeline1.1.pkl")
+pipeline = joblib.load("best_fraud_detection_pipeline1.1.pkl.bz2")
 
 # --- Category Options for the HTML Dropdown ---
 categories = [
