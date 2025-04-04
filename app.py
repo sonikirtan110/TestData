@@ -1,43 +1,42 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
+import os
 import joblib
-import numpy as np
 import pandas as pd
 import bz2
-import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 
-# --- Configure MySQL Database from Railway Environment Variables ---
-MYSQL_USER = os.getenv("MYSQLUSER", "root")
-MYSQL_PASSWORD = os.getenv("MYSQLPASSWORD", "1978")
-MYSQL_HOST = os.getenv("MYSQLHOST", "mysql.railway.internal")
-MYSQL_PORT = os.getenv("MYSQLPORT", "3306")
-MYSQL_DATABASE = os.getenv("MYSQLDATABASE", "credit")
-
-DATABASE_URL = f"mysql+mysqlconnector://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:YsYbZPfbTqXRtNMmuXtwhGtbOLYfArWA@shuttle.proxy.rlwy.net:10338/railway'
+# Configure Supabase PostgreSQL Database
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Define the Transaction model
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
     amt = db.Column(db.Float, nullable=False)
-    city_pop = db.Column(db.Float, nullable=False)
+    city_pop = db.Column(db.Integer, nullable=False)
     lat = db.Column(db.Float, nullable=False)
     long = db.Column(db.Float, nullable=False)
     merch_lat = db.Column(db.Float, nullable=False)
     merch_long = db.Column(db.Float, nullable=False)
-    unix_time = db.Column(db.Float, nullable=False)
+    unix_time = db.Column(db.Integer, nullable=False)
     category = db.Column(db.String(50), nullable=False)
     prediction = db.Column(db.String(50), nullable=False)
     probability = db.Column(db.Float, nullable=False)
 
-# Load the trained ML model
+# Load ML model
 with bz2.open("best_fraud_detection_pipeline1.1.pkl.bz2", "rb") as f:
     pipeline = joblib.load(f)
+
+# ... rest of your existing routes and functions ...
+
 
 categories = ["entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos",
               "health_fitness", "home", "kids_pets", "misc_net", "misc_pos",
@@ -94,7 +93,8 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    app.run(debug=os.environ.get('FLASK_DEBUG', False))
