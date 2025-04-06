@@ -1,46 +1,23 @@
 from flask import Flask, request, jsonify, render_template
-from flask_sqlalchemy import SQLAlchemy
+import pandas as pd
 import os
 import joblib
-import pandas as pd
-import bz2
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+import zipfile
 
 app = Flask(__name__)
 
-# Configure Supabase PostgreSQL Database
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db = SQLAlchemy(app)
-
-class Transaction(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-    amt = db.Column(db.Float, nullable=False)
-    city_pop = db.Column(db.Integer, nullable=False)
-    lat = db.Column(db.Float, nullable=False)
-    long = db.Column(db.Float, nullable=False)
-    merch_lat = db.Column(db.Float, nullable=False)
-    merch_long = db.Column(db.Float, nullable=False)
-    unix_time = db.Column(db.Integer, nullable=False)
-    category = db.Column(db.String(50), nullable=False)
-    prediction = db.Column(db.String(50), nullable=False)
-    probability = db.Column(db.Float, nullable=False)
-
-# Load ML model
-with bz2.open("best_fraud_detection_pipeline1.1.pkl.bz2", "rb") as f:
-    pipeline = joblib.load(f)
-
-# ... rest of your existing routes and functions ...
-
-
+# Load categories
 categories = ["entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos",
               "health_fitness", "home", "kids_pets", "misc_net", "misc_pos",
               "personal_care", "shopping_net", "shopping_pos", "travel"]
+
+# Extract and Load ML model from ZIP
+def load_model(zip_path, model_name):
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        zip_ref.extract(model_name)
+    return joblib.load(model_name)
+
+pipeline = load_model("best_fraud_detection_pipeline.zip", "best_fraud_detection_pipeline.pkl")
 
 def get_recommendation(probability):
     if probability > 0.8:
@@ -57,14 +34,14 @@ def index():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        data = request.form if request.form else request.get_json()
+        data = request.form
         amt = float(data['amt'])
-        city_pop = float(data['city_pop'])
+        city_pop = int(data['city_pop'])
         lat = float(data['lat'])
         long_val = float(data['long'])
         merch_lat = float(data['merch_lat'])
         merch_long = float(data['merch_long'])
-        unix_time = float(data['unix_time'])
+        unix_time = int(data['unix_time'])
         category = data['category']
 
         input_data = pd.DataFrame([[amt, city_pop, lat, long_val, merch_lat, merch_long, unix_time, category]],
@@ -72,17 +49,31 @@ def predict():
 
         prediction = pipeline.predict(input_data)[0]
         probability = pipeline.predict_proba(input_data)[0][1]
-
         pred_label = "Fraudulent" if probability >= 0.8 else "Non-Fraudulent"
         recommendation = get_recommendation(probability)
 
-        new_transaction = Transaction(
-            amt=amt, city_pop=city_pop, lat=lat, long=long_val, merch_lat=merch_lat,
-            merch_long=merch_long, unix_time=unix_time, category=category,
-            prediction=pred_label, probability=round(probability, 2)
-        )
-        db.session.add(new_transaction)
-        db.session.commit()
+        # Save to Excel (append mode)
+        excel_file = "transactions.xlsx"
+        record = {
+            "amt": amt,
+            "city_pop": city_pop,
+            "lat": lat,
+            "long": long_val,
+            "merch_lat": merch_lat,
+            "merch_long": merch_long,
+            "unix_time": unix_time,
+            "category": category,
+            "prediction": pred_label,
+            "probability": round(probability, 2)
+        }
+
+        if os.path.exists(excel_file):
+            df_existing = pd.read_excel(excel_file)
+            df_new = pd.concat([df_existing, pd.DataFrame([record])], ignore_index=True)
+        else:
+            df_new = pd.DataFrame([record])
+
+        df_new.to_excel(excel_file, index=False)
 
         return jsonify({
             "prediction": pred_label,
@@ -93,8 +84,5 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
-
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=os.environ.get('FLASK_DEBUG', False))
+    app.run(debug=True)
