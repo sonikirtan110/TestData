@@ -6,7 +6,7 @@ import pandas as pd
 app = Flask(__name__)
 
 # Load the trained pipeline
-pipeline = joblib.load("best_fraud_detection_model1.pkl")
+pipeline = joblib.load("best_fraud_detection_pipeline.pkl")
 
 # Map category dropdown to numerical values (if necessary)
 categories = [
@@ -29,14 +29,14 @@ def predict():
         amt = float(data['amt'])
         city_pop = float(data['city_pop'])
         lat = float(data['lat'])
-        long = float(data['long'])
+        long_val = float(data['long'])
         merch_lat = float(data['merch_lat'])
         merch_long = float(data['merch_long'])
         unix_time = float(data['unix_time'])
         category = data['category']
 
         # Prepare input data as a DataFrame
-        input_data = pd.DataFrame([[amt, city_pop, lat, long, merch_lat, merch_long, unix_time, category]],
+        input_data = pd.DataFrame([[amt, city_pop, lat, long_val, merch_lat, merch_long, unix_time, category]],
                                   columns=['amt', 'city_pop', 'lat', 'long', 'merch_lat', 'merch_long', 'unix_time', 'category'])
 
         # Make prediction
