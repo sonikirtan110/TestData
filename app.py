@@ -17,7 +17,7 @@ def load_model(zip_path, model_name):
         zip_ref.extract(model_name)
     return joblib.load(model_name)
 
-pipeline = load_model("best_fraud_detection_pipeline.zip", "best_fraud_detection_pipeline.pkl")
+pipeline = load_model("best_fraud_detection_pipeline1.1.zip", "best_fraud_detection_pipeline1.1.pkl")
 
 def get_recommendation(probability):
     if probability > 0.8:
