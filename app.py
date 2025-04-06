@@ -6,16 +6,16 @@ import zipfile
 
 app = Flask(__name__)
 
-# Load categories
 categories = ["entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos",
               "health_fitness", "home", "kids_pets", "misc_net", "misc_pos",
               "personal_care", "shopping_net", "shopping_pos", "travel"]
 
-# Extract and Load ML model from ZIP
 def load_model(zip_path, model_name):
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-        zip_ref.extract(model_name)
-    return joblib.load(model_name)
+    extracted_model = os.path.join("model", model_name)
+    if not os.path.exists(extracted_model):
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall("model")
+    return joblib.load(extracted_model)
 
 pipeline = load_model("best_fraud_detection_pipeline1.1.zip", "best_fraud_detection_pipeline1.1.pkl")
 
@@ -52,8 +52,6 @@ def predict():
         pred_label = "Fraudulent" if probability >= 0.8 else "Non-Fraudulent"
         recommendation = get_recommendation(probability)
 
-        # Save to Excel (append mode)
-        excel_file = "transactions.xlsx"
         record = {
             "amt": amt,
             "city_pop": city_pop,
@@ -67,6 +65,7 @@ def predict():
             "probability": round(probability, 2)
         }
 
+        excel_file = "transactions.xlsx"
         if os.path.exists(excel_file):
             df_existing = pd.read_excel(excel_file)
             df_new = pd.concat([df_existing, pd.DataFrame([record])], ignore_index=True)
