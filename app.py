@@ -1,22 +1,27 @@
+# app.py
 from flask import Flask, request, jsonify, render_template
 import joblib
-import numpy as np
 import pandas as pd
-# Add at the top
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+import os
 
 app = Flask(__name__)
 
-# Load the trained pipeline
+# Load the trained model
 pipeline = joblib.load("best_fraud_detection_pipeline.pkl")
 
-# Map category dropdown to numerical values (if necessary)
 categories = [
     "entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos",
     "health_fitness", "home", "kids_pets", "misc_net", "misc_pos",
     "personal_care", "shopping_net", "shopping_pos", "travel"
 ]
+
+def get_recommendation(probability):
+    if probability > 0.8:
+        return "High risk. Immediately verify the transaction or block the card."
+    elif probability > 0.5:
+        return "Medium risk. Consider additional authentication or user verification."
+    else:
+        return "Low risk. Transaction seems normal, but continue monitoring."
 
 @app.route('/')
 def index():
@@ -25,34 +30,31 @@ def index():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Get form or JSON data
         data = request.form if request.form else request.get_json()
+        
+        input_data = pd.DataFrame([[
+            float(data['amt']),
+            float(data['city_pop']),
+            float(data['lat']),
+            float(data['long']),
+            float(data['merch_lat']),
+            float(data['merch_long']),
+            float(data['unix_time']),
+            data['category']
+        ]], columns=['amt', 'city_pop', 'lat', 'long', 'merch_lat', 'merch_long', 'unix_time', 'category'])
 
-        # Extract features
-        amt = float(data['amt'])
-        city_pop = float(data['city_pop'])
-        lat = float(data['lat'])
-        long_val = float(data['long'])
-        merch_lat = float(data['merch_lat'])
-        merch_long = float(data['merch_long'])
-        unix_time = float(data['unix_time'])
-        category = data['category']
-
-        # Prepare input data as a DataFrame
-        input_data = pd.DataFrame([[amt, city_pop, lat, long_val, merch_lat, merch_long, unix_time, category]],
-                                  columns=['amt', 'city_pop', 'lat', 'long', 'merch_lat', 'merch_long', 'unix_time', 'category'])
-
-        # Make prediction
         prediction = pipeline.predict(input_data)[0]
         probability = pipeline.predict_proba(input_data)[0][1]
 
-        # Return response
         return jsonify({
-            "prediction": "Fraudulent" if prediction >= 0.50 else "Non-Fraudulent",
-            "probability": round(probability, 2)
+            "prediction": "Fraudulent" if prediction == 1 else "Non-Fraudulent",
+            "probability": round(probability, 2),
+            "recommendation": get_recommendation(probability)
         })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
