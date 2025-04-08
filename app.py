@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, request, jsonify, render_template
 import joblib
 import pandas as pd
@@ -6,8 +5,12 @@ import os
 
 app = Flask(__name__)
 
-# Load the trained model
-pipeline = joblib.load("best_fraud_detection_pipeline.pkl")
+# Load model with compatibility fix
+try:
+    pipeline = joblib.load("best_fraud_detection_pipeline.pkl")
+except:
+    pipeline = joblib.load("best_fraud_detection_pipeline.pkl", mmap_mode='c')
+
 
 categories = [
     "entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos",
@@ -57,4 +60,4 @@ def predict():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, threaded=True)
