@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify, render_template
 import joblib
 import numpy as np
 import pandas as pd
+# Add at the top
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 app = Flask(__name__)
 
