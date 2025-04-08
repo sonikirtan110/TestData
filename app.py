@@ -2,12 +2,15 @@ from flask import Flask, request, jsonify, render_template
 import joblib
 import numpy as np
 import pandas as pd
+import bz2
+import joblib
 
 app = Flask(__name__)
 
 # 1. Load the trained pipeline
-pipeline = joblib.load("best_fraud_detection_model.pkl")
 
+with bz2.open("best_fraud_detection_pipeline1.1.pkl.bz2", "rb") as f:
+    pipeline = joblib.load(f)
 # 2. Category options (for dropdown in index.html)
 categories = [
     "entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos",
